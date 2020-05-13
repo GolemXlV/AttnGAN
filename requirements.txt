@@ -1,0 +1,10 @@
+pyyaml
+nltk==3.4.5
+numpy==1.18.1
+pandas==1.0.3
+python-dateutil==2.8.1
+scikit-image==0.16.2
+scipy==1.4.1
+torch==1.5.0
+torchvision==0.6.0
+torchfile==0.1.0
