@@ -16,11 +16,11 @@ As a result of whitepaper's analysis, FC layer was added to text encoding module
 
 Unfortunately, due to architecture specifics (changing DAMSM model affects the possibility of retraining) I didn't have enough resources to run DAMSM and GAN completely and run more tests, so I had to limit myself to 200 epochs. This is a evaluation result on generated images with Attention maps:
 
-<img src="example_eval.png" alt="example evaluation" width="1290" height="306"/>
+<img src="example_eval1.png" alt="example evaluation" width="1290" height="306"/>
 <img src="example_eval2.png" alt="example evaluation 2" width="1290" height="306"/>
 
 And some sample images:
-<img src="sample.png" align="left" alt="sample 1" width="256" height="256"/>
+<img src="sample1.png" align="left" alt="sample 1" width="256" height="256"/>
 <img src="sample2.png" alt="sample 2" width="256" height="256"/>
 
 ### Implementation
