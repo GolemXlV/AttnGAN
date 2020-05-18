@@ -31,8 +31,8 @@ def drawCaption(convas, captions, ixtoword, vis_size, off1=2, off2=2):
     num = captions.size(0)
     img_txt = Image.fromarray(convas)
     # get a font
-    # fnt = None  # ImageFont.truetype('Pillow/Tests/fonts/FreeMono.ttf', 50)
-    fnt = ImageFont.truetype('Pillow/Tests/fonts/FreeMono.ttf', 50)
+    fnt = None  # ImageFont.truetype('Pillow/Tests/fonts/FreeMono.ttf', 50)
+#     fnt = ImageFont.truetype('Pillow/Tests/fonts/FreeMono.ttf', 50)
     # get a drawing context
     d = ImageDraw.Draw(img_txt)
     sentence_list = []
@@ -75,7 +75,7 @@ def build_super_images(real_imgs, captions, ixtoword,
 
 
     real_imgs = \
-        nn.Upsample(size=(vis_size, vis_size), mode='bilinear')(real_imgs)
+        nn.Upsample(size=(vis_size, vis_size), mode='bilinear', align_corners=True)(real_imgs)
     # [-1, 1] --> [0, 1]
     real_imgs.add_(1).div_(2).mul_(255)
     real_imgs = real_imgs.data.numpy()
@@ -86,7 +86,7 @@ def build_super_images(real_imgs, captions, ixtoword,
     post_pad = np.zeros([pad_sze[1], pad_sze[2], 3])
     if lr_imgs is not None:
         lr_imgs = \
-            nn.Upsample(size=(vis_size, vis_size), mode='bilinear')(lr_imgs)
+            nn.Upsample(size=(vis_size, vis_size), mode='bilinear', align_corners=True)(lr_imgs)
         # [-1, 1] --> [0, 1]
         lr_imgs.add_(1).div_(2).mul_(255)
         lr_imgs = lr_imgs.data.numpy()
@@ -142,6 +142,8 @@ def build_super_images(real_imgs, captions, ixtoword,
                 one_map = row_beforeNorm[j]
                 one_map = (one_map - minVglobal) / (maxVglobal - minVglobal)
                 one_map *= 255
+                # fix invalid color dimension after expanding
+                one_map = one_map[:, :, :3]
                 #
                 PIL_im = Image.fromarray(np.uint8(img))
                 PIL_att = Image.fromarray(np.uint8(one_map))
@@ -150,7 +152,7 @@ def build_super_images(real_imgs, captions, ixtoword,
                 mask = Image.new('L', (vis_size, vis_size), (210))
                 merged.paste(PIL_im, (0, 0))
                 merged.paste(PIL_att, (0, 0), mask)
-                merged = np.array(merged)[:, :, :3]
+                merged = np.array(merged)
             else:
                 one_map = post_pad
                 merged = post_pad
@@ -185,7 +187,7 @@ def build_super_images2(real_imgs, captions, cap_lens, ixtoword,
                            dtype=np.uint8)
 
     real_imgs = \
-        nn.Upsample(size=(vis_size, vis_size), mode='bilinear')(real_imgs)
+        nn.Upsample(size=(vis_size, vis_size), mode='bilinear', align_corners=True)(real_imgs)
     # [-1, 1] --> [0, 1]
     real_imgs.add_(1).div_(2).mul_(255)
     real_imgs = real_imgs.data.numpy()
@@ -231,7 +233,7 @@ def build_super_images2(real_imgs, captions, cap_lens, ixtoword,
                                                      upscale=vis_size // att_sze)
             minV = one_map.min()
             maxV = one_map.max()
-            one_map = (one_map - minV) / (maxV - minV)
+            one_map = (one_map - minV) / ((maxV - minV) + 1E-17)
             row_beforeNorm.append(one_map)
         sorted_indices = np.argsort(conf_score)[::-1]
 
@@ -239,8 +241,10 @@ def build_super_images2(real_imgs, captions, cap_lens, ixtoword,
             one_map = row_beforeNorm[j]
             one_map *= 255
             #
+#             output = open('img.pkl', 'wb'); pickle.dump(np.uint8(img), output); output.close()
             PIL_im = Image.fromarray(np.uint8(img))
-            PIL_att = Image.fromarray(np.uint8(one_map))
+#             output = open('one_map.pkl', 'wb'); pickle.dump(np.uint8(one_map), output); output.close()
+            PIL_att = Image.fromarray(np.uint8(one_map)[:, :, :3])
             merged = \
                 Image.new('RGBA', (vis_size, vis_size), (0, 0, 0, 0))
             mask = Image.new('L', (vis_size, vis_size), (180))  # (210)
@@ -248,7 +252,7 @@ def build_super_images2(real_imgs, captions, cap_lens, ixtoword,
             merged.paste(PIL_att, (0, 0), mask)
             merged = np.array(merged)[:, :, :3]
 
-            row.append(np.concatenate([one_map, middle_pad], 1))
+            row.append(np.concatenate([one_map[:, :, :3], middle_pad], 1))
             #
             row_merge.append(np.concatenate([merged, middle_pad], 1))
             #
@@ -286,12 +290,12 @@ def build_super_images2(real_imgs, captions, cap_lens, ixtoword,
 def weights_init(m):
     classname = m.__class__.__name__
     if classname.find('Conv') != -1:
-        nn.init.orthogonal(m.weight.data, 1.0)
+        nn.init.orthogonal_(m.weight.data, 1.0)
     elif classname.find('BatchNorm') != -1:
         m.weight.data.normal_(1.0, 0.02)
         m.bias.data.fill_(0)
     elif classname.find('Linear') != -1:
-        nn.init.orthogonal(m.weight.data, 1.0)
+        nn.init.orthogonal_(m.weight.data, 1.0)
         if m.bias is not None:
             m.bias.data.fill_(0.0)
 

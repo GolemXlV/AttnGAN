@@ -1,9 +1,3 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
-
-
 from nltk.tokenize import RegexpTokenizer
 from collections import defaultdict
 from miscc.config import cfg
@@ -80,7 +74,7 @@ def get_imgs(img_path, imsize, bbox=None,
         for i in range(cfg.TREE.BRANCH_NUM):
             # print(imsize[i])
             if i < (cfg.TREE.BRANCH_NUM - 1):
-                re_img = transforms.Scale(imsize[i])(img)
+                re_img = transforms.Resize(imsize[i])(img)
             else:
                 re_img = img
             ret.append(normalize(re_img))
@@ -147,7 +141,7 @@ class TextDataset(data.Dataset):
         for i in range(len(filenames)):
             cap_path = '%s/text/%s.txt' % (data_dir, filenames[i])
             with open(cap_path, "r") as f:
-                captions = f.read().decode('utf8').split('\n')
+                captions = f.read().split('\n')
                 cnt = 0
                 for cap in captions:
                     if len(cap) == 0:
@@ -251,7 +245,7 @@ class TextDataset(data.Dataset):
     def load_class_id(self, data_dir, total_num):
         if os.path.isfile(data_dir + '/class_info.pickle'):
             with open(data_dir + '/class_info.pickle', 'rb') as f:
-                class_id = pickle.load(f)
+                class_id = pickle.load(f, encoding='bytes')
         else:
             class_id = np.arange(total_num)
         return class_id

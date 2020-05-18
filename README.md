@@ -1,15 +1,30 @@
 # AttnGAN
 
+### Note
+The key to solving the task in understanding GAN architectures described in these whitepapers and basic knowledge of natural language processing. 
+
+The first whitepaper describes Attention's approach to text-based image generation based on GAN.  AttnGAN can synthesize fine-grained details on different sub-regions of the image, paying attention to the corresponding words in the description of the text in the natural language. However, this approach requires text pre-processing due to high noise levels. The solution described in this whitepaper is based on TF/IDF. The key module in architecture is the Deep Attentive Multimodal Similarity Model (DAMSM) capable of calculating similarity between the generated image and sentence. The model also represents an additional loss function for GAN learning.
+<img src="framework.png" width="900px" height="350px"/>
+
+The second whitepaper uses a Zero-Shot learning approach to a GAN-based classification task from previously unseen text categories based on Wikipedia raw articles. TF/IDF is also used for text preprocessing. The key feature of this solution is the text encoding module. It is based on an additional FC layer, which reduces dimensionality and suppresses noise. The presence of this layer provides an increase in accuracy of 2-3% compared to its absence.
+<img src="fc_table.png" width="900px" height="350px"/>
+
+As a result of whitepaper's analysis, FC layer was added to text encoding module, project ported to Python 3 (Python 2 is no longer supported since January 2020), dependencies were upgraded to stable versions, warnings and visualization errors were fixed and Tensorboard 2.1.0 support was added to DAMSM. As a result, the convergence of the validation loss function in the DAMSM model was 3-5% more successful in terms of sentence loss and word loss, which in my opinion is a critical indicator for this architecture.
+
+<img src="sentence_loss_val.png" width="421px" height="289px"/>
+<img src="word_loss_val.png" width="421px" height="289px"/>
+
+### Implementation
+
 Pytorch implementation for reproducing AttnGAN results in the paper [AttnGAN: Fine-Grained Text to Image Generation
 with Attentional Generative Adversarial Networks](http://openaccess.thecvf.com/content_cvpr_2018/papers/Xu_AttnGAN_Fine-Grained_Text_CVPR_2018_paper.pdf) by Tao Xu, Pengchuan Zhang, Qiuyuan Huang, Han Zhang, Zhe Gan, Xiaolei Huang, Xiaodong He. (This work was performed when Tao was an intern with Microsoft Research). 
 
-<img src="framework.png" width="900px" height="350px"/>
 
 
 ### Dependencies
-python 2.7
+Python 3
 
-Pytorch
+Pytorch >=1.5
 
 In addition, please add the project folder to PYTHONPATH and `pip install` the following packages:
 - `python-dateutil`
@@ -18,7 +33,7 @@ In addition, please add the project folder to PYTHONPATH and `pip install` the f
 - `torchfile`
 - `nltk`
 - `scikit-image`
-
+- `tensorboard`
 
 
 **Data**

@@ -9,6 +9,7 @@ from datasets import TextDataset
 from datasets import prepare_data
 
 from model import RNN_ENCODER, CNN_ENCODER
+from torch.utils.tensorboard import SummaryWriter
 
 import os
 import sys
@@ -22,18 +23,17 @@ import numpy as np
 from PIL import Image
 
 import torch
-import torch.nn as nn
 import torch.optim as optim
 from torch.autograd import Variable
 import torch.backends.cudnn as cudnn
 import torchvision.transforms as transforms
 
-
 dir_path = (os.path.abspath(os.path.join(os.path.realpath(__file__), './.')))
 sys.path.append(dir_path)
 
-
 UPDATE_INTERVAL = 200
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a DAMSM network')
     parser.add_argument('--cfg', dest='cfg_file',
@@ -47,7 +47,7 @@ def parse_args():
 
 
 def train(dataloader, cnn_model, rnn_model, batch_size,
-          labels, optimizer, epoch, ixtoword, image_dir):
+          labels, optimizer, epoch, ixtoword, image_dir, writer):
     cnn_model.train()
     rnn_model.train()
     s_total_loss0 = 0
@@ -62,8 +62,7 @@ def train(dataloader, cnn_model, rnn_model, batch_size,
         cnn_model.zero_grad()
 
         imgs, captions, cap_lens, \
-            class_ids, keys = prepare_data(data)
-
+        class_ids, keys = prepare_data(data)
 
         # words_features: batch_size x nef x 17 x 17
         # sent_code: batch_size x nef
@@ -93,18 +92,17 @@ def train(dataloader, cnn_model, rnn_model, batch_size,
         #
         # `clip_grad_norm` helps prevent
         # the exploding gradient problem in RNNs / LSTMs.
-        torch.nn.utils.clip_grad_norm(rnn_model.parameters(),
-                                      cfg.TRAIN.RNN_GRAD_CLIP)
+        torch.nn.utils.clip_grad_norm_(rnn_model.parameters(),
+                                       cfg.TRAIN.RNN_GRAD_CLIP)
         optimizer.step()
 
         if step % UPDATE_INTERVAL == 0:
             count = epoch * len(dataloader) + step
+            s_cur_loss0 = s_total_loss0.item() / UPDATE_INTERVAL
+            s_cur_loss1 = s_total_loss1.item() / UPDATE_INTERVAL
 
-            s_cur_loss0 = s_total_loss0[0] / UPDATE_INTERVAL
-            s_cur_loss1 = s_total_loss1[0] / UPDATE_INTERVAL
-
-            w_cur_loss0 = w_total_loss0[0] / UPDATE_INTERVAL
-            w_cur_loss1 = w_total_loss1[0] / UPDATE_INTERVAL
+            w_cur_loss0 = w_total_loss0.item() / UPDATE_INTERVAL
+            w_cur_loss1 = w_total_loss1.item() / UPDATE_INTERVAL
 
             elapsed = time.time() - start_time
             print('| epoch {:3d} | {:5d}/{:5d} batches | ms/batch {:5.2f} | '
@@ -114,6 +112,10 @@ def train(dataloader, cnn_model, rnn_model, batch_size,
                           elapsed * 1000. / UPDATE_INTERVAL,
                           s_cur_loss0, s_cur_loss1,
                           w_cur_loss0, w_cur_loss1))
+
+            writer.add_scalar('sentence loss', (s_cur_loss0 + s_cur_loss1), count)
+            writer.add_scalar('word loss', (w_cur_loss0 + w_cur_loss1), count)
+
             s_total_loss0 = 0
             s_total_loss1 = 0
             w_total_loss0 = 0
@@ -137,7 +139,7 @@ def evaluate(dataloader, cnn_model, rnn_model, batch_size):
     w_total_loss = 0
     for step, data in enumerate(dataloader, 0):
         real_imgs, captions, cap_lens, \
-                class_ids, keys = prepare_data(data)
+        class_ids, keys = prepare_data(data)
 
         words_features, sent_code = cnn_model(real_imgs[-1])
         # nef = words_features.size(1)
@@ -157,8 +159,8 @@ def evaluate(dataloader, cnn_model, rnn_model, batch_size):
         if step == 50:
             break
 
-    s_cur_loss = s_total_loss[0] / step
-    w_cur_loss = w_total_loss[0] / step
+    s_cur_loss = s_total_loss.item() / step
+    w_cur_loss = w_total_loss.item() / step
 
     return s_cur_loss, w_cur_loss
 
@@ -220,8 +222,8 @@ if __name__ == "__main__":
     ##########################################################################
     now = datetime.datetime.now(dateutil.tz.tzlocal())
     timestamp = now.strftime('%Y_%m_%d_%H_%M_%S')
-    output_dir = '../output/%s_%s_%s' % \
-        (cfg.DATASET_NAME, cfg.CONFIG_NAME, timestamp)
+    output_dir = 'output/%s_%s_%s' % \
+                 (cfg.DATASET_NAME, cfg.CONFIG_NAME, timestamp)
 
     model_dir = os.path.join(output_dir, 'Model')
     image_dir = os.path.join(output_dir, 'Image')
@@ -232,10 +234,10 @@ if __name__ == "__main__":
     cudnn.benchmark = True
 
     # Get data loader ##################################################
-    imsize = cfg.TREE.BASE_SIZE * (2 ** (cfg.TREE.BRANCH_NUM-1))
+    imsize = cfg.TREE.BASE_SIZE * (2 ** (cfg.TREE.BRANCH_NUM - 1))
     batch_size = cfg.TRAIN.BATCH_SIZE
     image_transform = transforms.Compose([
-        transforms.Scale(int(imsize * 76 / 64)),
+        transforms.Resize(int(imsize * 76 / 64)),
         transforms.RandomCrop(imsize),
         transforms.RandomHorizontalFlip()])
     dataset = TextDataset(cfg.DATA_DIR, 'train',
@@ -263,6 +265,17 @@ if __name__ == "__main__":
         if v.requires_grad:
             para.append(v)
     # optimizer = optim.Adam(para, lr=cfg.TRAIN.ENCODER_LR, betas=(0.5, 0.999))
+
+    # default `log_dir` is "runs" - we'll be more specific here
+
+    # enable tensorboard writer
+    writer = SummaryWriter(model_dir)
+    # write model graph
+    dataiter = iter(dataloader)
+    imgs, captions, cap_lens, class_ids, keys = prepare_data(next(dataiter))
+    hidden = text_encoder.init_hidden(batch_size)
+    writer.add_graph(text_encoder, (captions, cap_lens, hidden))
+
     # At any point you can hit Ctrl + C to break out of training early.
     try:
         lr = cfg.TRAIN.ENCODER_LR
@@ -271,7 +284,7 @@ if __name__ == "__main__":
             epoch_start_time = time.time()
             count = train(dataloader, image_encoder, text_encoder,
                           batch_size, labels, optimizer, epoch,
-                          dataset.ixtoword, image_dir)
+                          dataset.ixtoword, image_dir, writer)
             print('-' * 89)
             if len(dataloader_val) > 0:
                 s_loss, w_loss = evaluate(dataloader_val, image_encoder,
@@ -279,17 +292,20 @@ if __name__ == "__main__":
                 print('| end epoch {:3d} | valid loss '
                       '{:5.2f} {:5.2f} | lr {:.5f}|'
                       .format(epoch, s_loss, w_loss, lr))
+                writer.add_scalar('sentence loss (val)', s_loss, count)
+                writer.add_scalar('word loss (val)', w_loss, count)
             print('-' * 89)
-            if lr > cfg.TRAIN.ENCODER_LR/10.:
+            if lr > cfg.TRAIN.ENCODER_LR / 10.:
                 lr *= 0.98
 
             if (epoch % cfg.TRAIN.SNAPSHOT_INTERVAL == 0 or
-                epoch == cfg.TRAIN.MAX_EPOCH):
+                    epoch == cfg.TRAIN.MAX_EPOCH):
                 torch.save(image_encoder.state_dict(),
                            '%s/image_encoder%d.pth' % (model_dir, epoch))
                 torch.save(text_encoder.state_dict(),
                            '%s/text_encoder%d.pth' % (model_dir, epoch))
                 print('Save G/Ds models.')
     except KeyboardInterrupt:
+        writer.close()  # close writer
         print('-' * 89)
         print('Exiting from training early')

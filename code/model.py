@@ -20,7 +20,7 @@ class GLU(nn.Module):
         nc = x.size(1)
         assert nc % 2 == 0, 'channels dont divide 2!'
         nc = int(nc/2)
-        return x[:, :nc] * F.sigmoid(x[:, nc:])
+        return x[:, :nc] * torch.sigmoid(x[:, nc:])
 
 
 def conv1x1(in_planes, out_planes, bias=False):
@@ -73,12 +73,14 @@ class ResBlock(nn.Module):
 
 # ############## Text2Image Encoder-Decoder #######
 class RNN_ENCODER(nn.Module):
-    def __init__(self, ntoken, ninput=300, drop_prob=0.5,
-                 nhidden=128, nlayers=1, bidirectional=True):
+    def __init__(self, ntoken, ninput=500, nr_input=256, drop_prob=0.5,
+                 nhidden=128, nlayers=1, bidirectional=True, dropout_layer=True):
         super(RNN_ENCODER, self).__init__()
         self.n_steps = cfg.TEXT.WORDS_NUM
         self.ntoken = ntoken  # size of the dictionary
         self.ninput = ninput  # size of each embedding vector
+        self.nr_input = nr_input # size of linear layer
+        self.dropout_layer = dropout_layer # enable/disable dropout before LSTM/GRU
         self.drop_prob = drop_prob  # probability of an element to be zeroed
         self.nlayers = nlayers  # Number of recurrent layers
         self.bidirectional = bidirectional
@@ -95,16 +97,19 @@ class RNN_ENCODER(nn.Module):
 
     def define_module(self):
         self.encoder = nn.Embedding(self.ntoken, self.ninput)
-        self.drop = nn.Dropout(self.drop_prob)
+        # append additional FC layer to reduce embedding dimension space and noise suppression
+        self.linear = nn.Linear(self.ninput, self.nr_input)
+        if self.dropout_layer:
+            self.drop = nn.Dropout(self.drop_prob)
         if self.rnn_type == 'LSTM':
             # dropout: If non-zero, introduces a dropout layer on
             # the outputs of each RNN layer except the last layer
-            self.rnn = nn.LSTM(self.ninput, self.nhidden,
+            self.rnn = nn.LSTM(self.nr_input, self.nhidden,
                                self.nlayers, batch_first=True,
                                dropout=self.drop_prob,
                                bidirectional=self.bidirectional)
         elif self.rnn_type == 'GRU':
-            self.rnn = nn.GRU(self.ninput, self.nhidden,
+            self.rnn = nn.GRU(self.nr_input, self.nhidden,
                               self.nlayers, batch_first=True,
                               dropout=self.drop_prob,
                               bidirectional=self.bidirectional)
@@ -133,7 +138,9 @@ class RNN_ENCODER(nn.Module):
     def forward(self, captions, cap_lens, hidden, mask=None):
         # input: torch.LongTensor of size batch x n_steps
         # --> emb: batch x n_steps x ninput
-        emb = self.drop(self.encoder(captions))
+        emb = self.linear(self.encoder(captions))
+        if self.dropout_layer:
+            emb = self.drop(emb)
         #
         # Returns: a PackedSequence object
         cap_lens = cap_lens.data.tolist()
@@ -207,7 +214,7 @@ class CNN_ENCODER(nn.Module):
     def forward(self, x):
         features = None
         # --> fixed-size input: batch x 3 x 299 x 299
-        x = nn.Upsample(size=(299, 299), mode='bilinear')(x)
+        x = nn.Upsample(size=(299, 299), mode='bilinear', align_corners=True)(x)
         # 299 x 299 x 3
         x = self.Conv2d_1a_3x3(x)
         # 149 x 149 x 32
