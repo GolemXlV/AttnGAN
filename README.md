@@ -20,6 +20,7 @@ Unfortunately, due to architecture specifics (changing DAMSM model affects the p
 <img src="example_eval2.png" alt="example evaluation 2" width="1290" height="306"/>
 
 And some sample images:
+
 <img src="sample1.png" align="left" alt="sample 1" width="256" height="256"/>
 <img src="sample2.png" alt="sample 2" width="256" height="256"/>
 
