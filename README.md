@@ -7,12 +7,17 @@ The first whitepaper describes Attention's approach to text-based image generati
 <img src="framework.png" width="900px" height="350px"/>
 
 The second whitepaper uses a Zero-Shot learning approach to a GAN-based classification task from previously unseen text categories based on Wikipedia raw articles. TF/IDF is also used for text preprocessing. The key feature of this solution is the text encoding module. It is based on an additional FC layer, which reduces dimensionality and suppresses noise. The presence of this layer provides an increase in accuracy of 2-3% compared to its absence.
-<img src="fc_table.png" width="900px" height="350px"/>
+<img src="fc_table.png" width="794px" height="389px"/>
 
-As a result of whitepaper's analysis, FC layer was added to text encoding module, project ported to Python 3 (Python 2 is no longer supported since January 2020), dependencies were upgraded to stable versions, warnings and visualization errors were fixed and Tensorboard 2.1.0 support was added to DAMSM. As a result, the convergence of the validation loss function in the DAMSM model was 3-5% more successful in terms of sentence loss and word loss, which in my opinion is a critical indicator for this architecture.
+As a result of whitepaper's analysis, FC layer was added to text encoding module, project ported to Python 3 (Python 2 is no longer supported since January 2020), dependencies were upgraded to stable versions, warnings and visualization errors were fixed and Tensorboard 2.1.0 support was added to DAMSM. As a result, the convergence of the validation loss function in the DAMSM model was 3-5% more successful in terms of sentence loss and word loss on CUB dataset on 200 epochs, which in my opinion is a critical indicator for this architecture.
 
-<img src="sentence_loss_val.png" width="421px" height="289px"/>
-<img src="word_loss_val.png" width="421px" height="289px"/>
+<img src="sentence_loss_val.png" width="421" alt="sentence loss on validation" height="289"/>
+<img src="word_loss_val.png" width="424" alt="word loss on validation" height="288"/>
+
+Unfortunately, due to architecture specifics (changing DAMSM model affects the possibility of retraining) I didn't have enough resources to run DAMSM and GAN completely and run more tests, so I had to limit myself to 200 epochs. This is a evaluation result on generated images with Attention maps:
+
+<img src="example_eval.png" alt="example evaluation" width="1290" height="306"/>
+<img src="example_eval2.png" alt="example evaluation" width="1290" height="306"/>
 
 ### Implementation
 

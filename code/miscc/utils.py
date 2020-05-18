@@ -143,20 +143,19 @@ def build_super_images(real_imgs, captions, ixtoword,
                 one_map = (one_map - minVglobal) / (maxVglobal - minVglobal)
                 one_map *= 255
                 # fix invalid color dimension after expanding
-                one_map = one_map[:, :, :3]
                 #
                 PIL_im = Image.fromarray(np.uint8(img))
-                PIL_att = Image.fromarray(np.uint8(one_map))
+                PIL_att = Image.fromarray(np.uint8(one_map)[:, :, :3])
                 merged = \
                     Image.new('RGBA', (vis_size, vis_size), (0, 0, 0, 0))
                 mask = Image.new('L', (vis_size, vis_size), (210))
                 merged.paste(PIL_im, (0, 0))
                 merged.paste(PIL_att, (0, 0), mask)
-                merged = np.array(merged)
+                merged = np.array(merged)[:, :, :3]
             else:
                 one_map = post_pad
                 merged = post_pad
-            row.append(one_map)
+            row.append(one_map[:, :, :3])
             row.append(middle_pad)
             #
             row_merge.append(merged)
